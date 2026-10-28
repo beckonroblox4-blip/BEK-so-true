@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="kk">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>BEK AI</title>
+<style>
+:root{color-scheme:dark;--bg:#07050d;--surface:#0e0a1a;--text:#f1eaff;--muted:#a99cc9;--accent:#8b2be2;--bot:#1a1230;--border:#2b1f4a}
+*{box-sizing:border-box}
+html,body{height:100%;margin:0}
+body{background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;display:flex;justify-content:center;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+.app{width:100%;max-width:760px;height:100%;display:flex;flex-direction:column;background:var(--surface)}
+header{display:flex;align-items:center;gap:12px;padding:14px 18px;border-bottom:1px solid var(--border)}
+.logo{width:40px;height:40px;border-radius:12px;background:linear-gradient(135deg,#8b2be2,#c026d3);color:#fff;display:grid;place-items:center;font-weight:800;font-size:15px}
+h1{font-size:18px;margin:0}.sub{font-size:12px;color:var(--muted);margin-top:2px}.sp{flex:1}
+.ghost{background:none;border:1px solid var(--border);color:var(--muted);border-radius:10px;padding:7px 11px;font-size:13px;cursor:pointer}
+#log{flex:1;overflow-y:auto;padding:18px;display:flex;flex-direction:column;gap:12px}
+.m{max-width:86%;padding:10px 14px;border-radius:16px;line-height:1.5;font-size:15px;white-space:pre-wrap;overflow-wrap:anywhere}
+.m.u{align-self:flex-end;background:var(--accent);color:#fff;border-bottom-right-radius:4px}
+.m.b{align-self:flex-start;background:var(--bot);border-bottom-left-radius:4px}
+.hello{margin:auto;text-align:center;color:var(--muted);max-width:420px}
+.hello b{display:block;color:var(--text);font-size:22px;margin-bottom:6px}
+.chips{display:flex;flex-wrap:wrap;gap:8px;justify-content:center;margin-top:14px}
+.chip{background:var(--bot);border:0;color:var(--text);border-radius:999px;padding:8px 14px;font-size:13px;cursor:pointer}
+form{display:flex;gap:10px;padding:12px 14px;border-top:1px solid var(--border)}
+textarea{flex:1;resize:none;border:1px solid var(--border);background:var(--bg);color:var(--text);border-radius:14px;padding:11px 14px;font:inherit;font-size:15px;max-height:140px;outline:none}
+textarea:focus{border-color:var(--accent)}
+#send{border:0;background:var(--accent);color:#fff;border-radius:14px;padding:0 18px;font-weight:700;font-size:15px;cursor:pointer}
+#send:disabled{opacity:.5}
+</style>
+</head>
+<body>
+<div class="app">
+  <header>
+    <div class="logo">BEK</div>
+    <div><h1>BEK AI</h1><div class="sub">Сіздің жеке ИИ ассистентіңіз</div></div>
+    <div class="sp"></div>
+    <button class="ghost" id="clear" type="button">Тазалау</button>
+  </header>
+  <div id="log"></div>
+  <form id="f">
+    <textarea id="t" rows="1" placeholder="BEK AI-ға жазыңыз…" autocomplete="off"></textarea>
+    <button id="send" type="submit">Жіберу</button>
+  </form>
+</div>
+<script>
+var log=document.getElementById("log"),t=document.getElementById("t"),btn=document.getElementById("send");
+var hist=[],busy=false;
+function hello(){
+  log.innerHTML="";
+  var d=document.createElement("div");d.className="hello";
+  d.innerHTML="<b>Сәлем! Мен BEK AI</b>Кез келген сұрақ қойыңыз — жауап беруге дайынмын.";
+  var c=document.createElement("div");c.className="chips";
+  ["Өзің туралы айт","Маған күн тәртібін құрастырып бер","Қысқаша ертегі жаз"].forEach(function(q){
+    var b=document.createElement("button");b.className="chip";b.type="button";b.textContent=q;
+    b.onclick=function(){send(q)};c.appendChild(b);
+  });
+  d.appendChild(c);log.appendChild(d);
+}
+function add(role,text){
+  var d=document.createElement("div");d.className="m "+(role==="user"?"u":"b");d.textContent=text;
+  log.appendChild(d);log.scrollTop=log.scrollHeight;return d;
+}
+async function send(text){
+  text=(text||"").trim();
+  if(!text||busy)return;
+  if(log.querySelector(".hello"))log.innerHTML="";
+  add("user",text);hist.push({role:"user",content:text});
+  t.value="";t.style.height="auto";
+  var out=add("bot","Ойланып жатырмын…");
+  busy=true;btn.disabled=true;
+  try{
+    var r=await fetch("/api/chat",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({messages:hist})});
+    var data=await r.json();
+    if(!r.ok)throw new Error(data.error||"Қате шықты. Қайта көріңіз.");
+    out.textContent=data.text;hist.push({role:"assistant",content:data.text});
+  }catch(e){
+    out.textContent=e.message||"Қате шықты. Қайта көріңіз.";
+    hist.pop();
+  }
+  busy=false;btn.disabled=false;log.scrollTop=log.scrollHeight;t.focus();
+}
+document.getElementById("f").onsubmit=function(e){e.preventDefault();send(t.value)};
+t.addEventListener("keydown",function(e){if(e.key==="Enter"&&!e.shiftKey){e.preventDefault();send(t.value)}});
+t.addEventListener("input",function(){t.style.height="auto";t.style.height=Math.min(t.scrollHeight,140)+"px"});
+document.getElementById("clear").onclick=function(){if(!busy){hist=[];hello()}};
+hello();
+</script>
+</body>
+</html>
